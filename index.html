@@ -31,23 +31,38 @@
         /* --- 大廳 (Lobby) 樣式整合 --- */
         #lobby {
             flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 40px 20px; z-index: 20; background: #0a0a0c; position: absolute; width: 100%; height: 100%; overflow-y: auto;
+            padding: 20px; z-index: 20; background: #0a0a0c; position: absolute; width: 100%; height: 100%; overflow-y: auto;
         }
         .config-box {
-            position: relative; z-index: 10; background: #111; padding: 30px; border-radius: 24px;
+            position: relative; z-index: 10; background: #111; padding: 25px 30px; border-radius: 24px;
             border: 2px solid #3b82f6; width: 100%; max-width: 850px; text-align: center; box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
         }
+        /* 移除原本過高的 min-height */
         .upload-section {
-            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin: 10px 0;
-            border: 2px dashed #666; text-align: left; display: flex; flex-direction: column; min-height: 220px;
+            background: rgba(255,255,255,0.05); padding: 12px 15px; border-radius: 12px; margin: 8px 0;
+            border: 2px dashed #666; text-align: left; display: flex; flex-direction: column; 
         }
         .cloud-input, #qInput {
-            width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444;
+            width: 100%; padding: 10px; margin-top: 5px; border-radius: 8px; border: 1px solid #444;
             background: #000; color: #fff; font-size: 14px; outline: none; resize: none;
         }
         .cloud-input { color: #77cc55; }
         .cloud-input:focus, #qInput:focus { border-color: #3b82f6; }
-        #qInput { flex: 1; min-height: 50px; margin-bottom: 10px; }
+        #qInput { flex: 1; min-height: 60px; margin-bottom: 5px; }
+
+        /* 新增大廳左右棋子吉祥物動畫 */
+        .lobby-mascot {
+            position: fixed; top: 50%; transform: translateY(-50%); width: 150px; height: 150px; 
+            border-radius: 50%; pointer-events: none; z-index: 5;
+            animation: bounce 2s infinite alternate ease-in-out;
+            box-shadow: inset 0 -10px 15px rgba(0,0,0,0.3), 0 15px 25px rgba(0,0,0,0.5);
+        }
+        .mascot-left { left: 5%; background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c); border: 5px solid #7f1d1d;}
+        .mascot-right { right: 5%; background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); border: 5px solid #92400e; animation-delay: 1s; }
+        @keyframes bounce { 
+            0% { transform: translateY(-50%); } 
+            100% { transform: translateY(calc(-50% - 30px)); } 
+        }
 
         /* --- 遊戲主體單欄置中樣式 (修改為自動縮放的左右佈局) --- */
         .game-container {
@@ -93,22 +108,12 @@
         .player-disc.red { background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c); }
         .player-disc.yellow { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); }
 
-        /* --- 棋盤與按鈕對齊樣式 (為適配固定大小，調整了尺寸) --- */
-        .board-container { 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-        }
+        /* --- 棋盤與按鈕對齊樣式 --- */
+        .board-container { position: relative; display: flex; flex-direction: column; align-items: center; }
         
-        /* 使用 CSS Grid 同步對齊上方按鈕與下方棋盤 */
         .column-selector { 
-            display: grid; 
-            grid-template-columns: repeat(7, 80px); /* 從 100px 縮小至 80px */
-            gap: 15px; /* 統一間距 */
-            padding: 0 25px; /* 完全對應下方 board 的 padding */
-            margin-bottom: 10px; 
-            width: fit-content;
+            display: grid; grid-template-columns: repeat(7, 80px); gap: 15px; 
+            padding: 0 25px; margin-bottom: 10px; width: fit-content;
         }
         .column-btn { 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -136,7 +141,7 @@
         .board-stand { display: flex; justify-content: space-between; width: 85%; margin: 0 auto; }
         .stand-leg { width: 80px; height: 40px; background-color: #fbbf24; border-radius: 0 0 10px 10px; box-shadow: inset 0 -3px 5px rgba(0,0,0,0.2);}
         
-        /* --- Modal & Kahoot 答題樣式 (完全比照寶可夢版) --- */
+        /* --- Modal & Kahoot 答題樣式 --- */
         .game-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.92);
             display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10000;
@@ -178,7 +183,6 @@
 
         .hidden { display: none !important; }
 
-        /* 新增：右上角關閉按鈕樣式 */
         .close-btn {
             position: absolute;
             top: 15px;
@@ -204,35 +208,50 @@
 
     <!-- 大廳題庫設定區 -->
     <div id="lobby">
+        <!-- 左右棋子吉祥物 -->
+        <div class="lobby-mascot mascot-left"></div>
+        <div class="lobby-mascot mascot-right"></div>
+        
         <div class="config-box">
-            <h1 style="color: #3b82f6; margin-bottom: 10px; font-size: 36px;">教育版四子棋</h1>
-            <p style="margin-bottom: 20px; color: #aaa;">結合知識問答與四子棋策略的終極對決！</p>
+            <h1 style="color: #3b82f6; margin-bottom: 5px; font-size: 32px;">教育版四子棋</h1>
+            <p style="margin-bottom: 15px; color: #aaa; font-size: 14px;">結合知識問答與四子棋策略的終極對決！</p>
             
-            <div style="display:flex; gap:20px; margin-top:10px; flex-wrap: wrap;">
+            <div style="display:flex; gap:15px; margin-top:5px; flex-wrap: wrap;">
                 <div class="upload-section" style="flex:1; min-width: 250px;">
-                    <h3 style="color: #77cc55; margin-bottom:8px;">🌐 模式 A：Google 試算表</h3>
-                    <p style="font-size:11px; color:#ccc; margin-bottom:10px;">格式：題號 | 題目 | 選項... | 答案(1-4)</p>
-                    <input type="text" id="cloud-url" class="cloud-input" placeholder="貼上 Google 試算表分享網址">
-                    <button class="btn" style="background:#77cc55; color:#000; padding:10px; font-weight:bold; margin-top:auto;" onclick="fetchCloudCSV()">載入連結</button>
-                    <div id="cloud-status" style="color: #77cc55; font-size: 13px; font-weight:bold; margin-top:8px;"></div>
+                    <h3 style="color: #77cc55; margin-bottom:5px; font-size: 16px;">🌐 模式 A：Google 試算表</h3>
+                    <p style="font-size:11px; color:#ccc; margin-bottom:5px;">格式：題號 | 題目 | 選項... | 答案(1-4)</p>
+                    <input type="text" id="cloud-url" class="cloud-input" placeholder="貼上試算表分享網址">
+                    <button class="btn" style="background:#77cc55; color:#000; padding:8px; font-weight:bold; margin-top:10px;" onclick="fetchCloudCSV()">載入連結</button>
+                    <div id="cloud-status" style="color: #77cc55; font-size: 12px; font-weight:bold; margin-top:5px;"></div>
                 </div>
                 
                 <div class="upload-section" style="flex:1; min-width: 250px;">
-                    <h3 style="color: #3399ff; margin-bottom:8px;">📝 模式 B：手動輸入題庫</h3>
-                    <p style="font-size:11px; color:#ccc; margin-bottom:10px;">由老師判定答對或答錯。多題請用 / 分隔：</p>
+                    <h3 style="color: #3399ff; margin-bottom:5px; font-size: 16px;">📝 模式 B：手動輸入題庫</h3>
+                    <p style="font-size:11px; color:#ccc; margin-bottom:5px;">由老師判定對錯。多題請用 / 分隔：</p>
                     <textarea id="qInput" placeholder="題目1 / 題目2 / ..."></textarea>
-                    <button class="btn" style="background:#3399ff; color:#fff; padding:10px; font-weight:bold; margin-top:auto;" onclick="loadManualQs()">確認題庫</button>
+                    <button class="btn" style="background:#3399ff; color:#fff; padding:8px; font-weight:bold; margin-top:5px;" onclick="loadManualQs()">確認題庫</button>
                 </div>
             </div>
 
             <div class="upload-section" style="text-align: center; border: 2px dashed #666; margin-top: 15px;">
-                <h3 style="color: #ff9d55; margin-bottom:5px;">📁 模式 C：上傳本地 CSV 檔案</h3>
+                <h3 style="color: #ff9d55; margin-bottom:5px; font-size: 16px;">📁 模式 C：上傳本地 CSV 檔案</h3>
                 <p style="font-size:11px; color:#ccc; margin-bottom:10px;">第一欄填題號，第二欄題目，最後一欄填解答數字(1-4)</p>
-                <input type="file" id="csv-file" accept=".csv" style="color:white; font-size:14px; margin: 0 auto; display: block;" onchange="loadLocalCSV(event)">
+                <input type="file" id="csv-file" accept=".csv" style="color:white; font-size:13px; margin: 0 auto; display: block;" onchange="loadLocalCSV(event)">
+            </div>
+            
+            <!-- 新增隨機設定區塊 -->
+            <div class="upload-section" style="margin-top: 15px; border-color: #555;">
+                <h3 style="color: #bbb; margin-bottom:8px; font-size:15px;">🎲 隨機設定</h3>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer;">
+                    <input type="checkbox" id="shuffle-q-btn" checked> 隨機打亂題目順序
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer; margin-top:6px;">
+                    <input type="checkbox" id="shuffle-opt-btn" checked> 隨機打亂選項順序 (僅適用 CSV / 試算表模式)
+                </label>
             </div>
 
-            <button class="btn" style="background:#fbbf24; color:#1e3a8a; width:100%; max-width: 400px; margin:25px auto 0; padding:20px; font-size:28px; border-radius:30px; font-weight:900; letter-spacing:2px; box-shadow: 0 6px 0 #d97706;" onclick="startGameFromLobby()">
-                載入完畢，進入遊戲！
+            <button class="btn" style="background:#fbbf24; color:#1e3a8a; width:100%; max-width: 350px; margin:20px auto 0; padding:15px; font-size:24px; border-radius:30px; font-weight:900; letter-spacing:2px; box-shadow: 0 6px 0 #d97706;" onclick="startGameFromLobby()">
+                進入遊戲
             </button>
         </div>
     </div>
@@ -287,7 +306,7 @@
         </div>
     </div>
     
-    <!-- 答題 Kahoot Modal (寶可夢樣式) -->
+    <!-- 答題 Kahoot Modal -->
     <div id="quiz-modal" class="game-modal">
         <div class="modal-box" style="max-width: 1200px; width: 95%; padding: 40px;">
             <h2 id="modal-team-name" style="margin-bottom: 25px; font-size:45px; font-weight:900; text-shadow:0 0 10px rgba(255,255,255,0.5); color:#ffcb05;"></h2>
@@ -296,7 +315,7 @@
         </div>
     </div>
 
-    <!-- 遊戲結束 Modal (全面換新！寶可夢風格大獎盃版) -->
+    <!-- 遊戲結束 Modal -->
     <div class="game-modal" id="gameOverModal" style="z-index: 10002;">
         <div class="modal-box" style="max-width: 800px; border-width:4px; box-shadow:0 10px 40px rgba(0,0,0,.8); background:linear-gradient(45deg,#ffd700,#ff8c00); color:#000; border-color:#fff;">
             <!-- 右上角關閉按鈕 -->
@@ -314,14 +333,33 @@
     </div>
     
     <script>
-        // --- 畫面縮放控制邏輯 (與寶可夢同款機制) ---
+        // --- 洗牌演算法 (Fisher-Yates) ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // 專門針對 CSV 題目的選項洗牌
+        function shuffleQuestionOptions(qObj) {
+            let optionsWithFlag = qObj.opts.map((opt, i) => ({
+                text: opt,
+                isCorrect: (i + 1) === qObj.ans
+            }));
+            
+            shuffleArray(optionsWithFlag);
+            
+            qObj.opts = optionsWithFlag.map(o => o.text);
+            qObj.ans = optionsWithFlag.findIndex(o => o.isCorrect) + 1;
+        }
+
+        // --- 畫面縮放控制邏輯 ---
         function updateGameScale() {
             const winW = window.innerWidth;
             const winH = window.innerHeight;
             const wrapper = document.getElementById('game-scale-wrapper');
-            // 只在遊戲容器顯示時才進行運算
             if (wrapper && !document.getElementById('game-container').classList.contains('hidden')) {
-                // 設定基礎畫布尺寸為 1250x750，0.95 預留四周留白安全距離
                 const scale = Math.min(winW / 1250, winH / 750) * 0.95;
                 wrapper.style.transform = `translate(-50%, -50%) scale(${scale})`;
             }
@@ -505,6 +543,23 @@
                 }
             }
             
+            // 讀取隨機設定
+            const isShuffleQuestions = document.getElementById('shuffle-q-btn').checked;
+            const isShuffleOptions = document.getElementById('shuffle-opt-btn').checked;
+
+            if (quizMode === 'csv' && csvQuestions.length > 0) {
+                if (isShuffleOptions) {
+                    csvQuestions.forEach(q => shuffleQuestionOptions(q));
+                }
+                if (isShuffleQuestions) {
+                    shuffleArray(csvQuestions);
+                }
+            } else if (quizMode === 'manual' && questions.length > 0) {
+                if (isShuffleQuestions) {
+                    shuffleArray(questions);
+                }
+            }
+
             document.getElementById('lobby').classList.add('hidden');
             document.getElementById('game-container').classList.remove('hidden');
             updateGameScale(); // 遊戲啟動時呼叫畫面縮放計算
@@ -560,6 +615,7 @@
             currentPlayer = colorCode;
             gameActive = true;
             canPlaceDisc = false;
+            currentQIdx = 0; // 開始新局時重置題號
             
             setupUI.classList.add('hidden');
             gameInfo.classList.remove('hidden');
@@ -600,9 +656,9 @@
             teamNameEl.style.color = currentPlayer === RED ? '#ef4444' : '#fbbf24';
 
             if (quizMode === 'csv' && csvQuestions.length > 0) {
-                // 隨機抽題 (完全比照寶可夢尺寸)
-                currentQIdx = Math.floor(Math.random() * csvQuestions.length);
-                const qObj = csvQuestions[currentQIdx];
+                // 依序抽取 (因已在開局洗牌過)
+                const realQIdx = currentQIdx % csvQuestions.length;
+                const qObj = csvQuestions[realQIdx];
                 let qFontSize = qObj.q.length > 30 ? '36px' : '50px';
                 
                 document.getElementById('quiz-text').innerHTML = `<div style="font-size:${qFontSize}; font-weight:bold; color:#fff; text-shadow: 2px 2px 4px #000; margin-bottom:30px; padding: 0 20px;">${qObj.q}</div>`;
@@ -619,9 +675,9 @@
                         </button>`;
                 });
             } else {
-                // 手動模式
-                currentQIdx = Math.floor(Math.random() * questions.length);
-                let qText = questions[currentQIdx] || "無題目";
+                // 手動模式依序抽取
+                const realQIdx = currentQIdx % questions.length;
+                let qText = questions[realQIdx] || "無題目";
                 let qFontSize = qText.length > 30 ? '40px' : '60px'; 
                 
                 document.getElementById('quiz-text').innerHTML = `<div style="font-size:${qFontSize}; font-weight:bold; color:#fff; text-shadow: 2px 2px 4px #000; margin-bottom:30px; padding: 0 20px;">${qText}</div>`;
@@ -642,6 +698,8 @@
                 showFeedback('✅ 回答正確！請點擊右方數字投遞圓盤', 'correct');
                 canPlaceDisc = true;
                 enableAvailableColumnButtons();
+                // 答對才換下一題
+                currentQIdx++;
             } else {
                 playSound('wrong');
                 showFeedback('❌ 回答錯誤！換下一位玩家', 'wrong');
@@ -650,13 +708,18 @@
                 let qText = "";
                 if (quizMode === 'csv' && csvQuestions.length > 0) {
                     // 若有題號，優先記錄題號，否則直接記錄題目內容
-                    qText = csvQuestions[currentQIdx].id || csvQuestions[currentQIdx].q;
+                    const realQIdx = currentQIdx % csvQuestions.length;
+                    qText = csvQuestions[realQIdx].id || csvQuestions[realQIdx].q;
                 } else {
-                    qText = questions[currentQIdx] || "未知題目";
+                    const realQIdx = currentQIdx % questions.length;
+                    qText = questions[realQIdx] || "未知題目";
                 }
                 wrongAnswers[currentPlayer].push(qText);
                 // ------------------
                 
+                // 答錯也換下一題 (可依需求決定是否讓下一隊答同一題)
+                currentQIdx++;
+
                 // 自動切換玩家並觸發下一次答題
                 currentPlayer = currentPlayer === RED ? YELLOW : RED;
                 updateGameInfo();
