@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教育版四子棋 (Educational Connect 4 - 自動對戰版)</title>
+    <!-- 引入 Tone.js 作為音效引擎 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f0f9ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; /* 強制不出現滾動條 */
+            color: #333;
+        }
+        
+        /* --- 大廳 (Lobby) 樣式整合 --- */
+        #lobby {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 40px 20px; z-index: 20; background: #0a0a0c; position: absolute; width: 100%; height: 100%; overflow-y: auto;
+        }
+        .config-box {
+            position: relative; z-index: 10; background: #111; padding: 30px; border-radius: 24px;
+            border: 2px solid #3b82f6; width: 100%; max-width: 850px; text-align: center; box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+        }
+        .upload-section {
+            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin: 10px 0;
+            border: 2px dashed #666; text-align: left; display: flex; flex-direction: column; min-height: 220px;
+        }
+        .cloud-input, #qInput {
+            width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #444;
+            background: #000; color: #fff; font-size: 14px; outline: none; resize: none;
+        }
+        .cloud-input { color: #77cc55; }
+        .cloud-input:focus, #qInput:focus { border-color: #3b82f6; }
+        #qInput { flex: 1; min-height: 50px; margin-bottom: 10px; }
+
+        /* --- 遊戲主體單欄置中樣式 (修改為自動縮放的左右佈局) --- */
+        .game-container {
+            position: relative; width: 100vw; height: 100vh; background-color: #f0f9ff; overflow: hidden;
+        }
+
+        #game-scale-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1250px;
+            height: 750px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 50px;
+            transform-origin: center center;
+        }
+        
+        .left-panel {
+            display: flex; flex-direction: column; gap: 20px; width: 420px; align-items: stretch; justify-content: center;
+        }
+
+        .right-panel {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        
+        .game-title {
+            font-size: 3.5rem; font-weight: 900; color: #1e40af; margin-bottom: 10px; text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .game-info {
+            font-size: 2rem; font-weight: bold; padding: 25px 20px; border-radius: 15px;
+            background-color: #dbeafe; text-align: center; display: flex;
+            align-items: center; justify-content: center; width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s;
+        }
+        
+        .current-player { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .player-disc { width: 40px; height: 40px; border-radius: 50%; box-shadow: inset 0 -3px 4px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.3); }
+        .player-disc.red { background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c); }
+        .player-disc.yellow { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); }
+
+        /* --- 棋盤與按鈕對齊樣式 (為適配固定大小，調整了尺寸) --- */
+        .board-container { 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        
+        /* 使用 CSS Grid 同步對齊上方按鈕與下方棋盤 */
+        .column-selector { 
+            display: grid; 
+            grid-template-columns: repeat(7, 80px); /* 從 100px 縮小至 80px */
+            gap: 15px; /* 統一間距 */
+            padding: 0 25px; /* 完全對應下方 board 的 padding */
+            margin-bottom: 10px; 
+            width: fit-content;
+        }
+        .column-btn { 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: none; border: none; cursor: pointer; transition: transform 0.2s; 
+            width: 100%; height: 60px; position: relative;
+        }
+        .column-btn:hover { transform: translateY(-5px) scale(1.1); }
+        .column-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+        .column-btn:disabled:hover { transform: none; }
+        .column-number { font-size: 1.5rem; font-weight: bold; color: white; position: absolute; z-index: 2; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+        .column-circle { width: 50px; height: 50px; border-radius: 50%; border: 3px solid #1e40af; transition: all 0.3s; position: relative; display: flex; justify-content: center; align-items: center;}
+        .column-btn:hover .column-circle { border-width: 4px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); }
+        .column-btn:disabled .column-circle { border-color: #93c5fd; }
+        
+        .board { 
+            background-color: #2563eb; padding: 25px; border-radius: 20px; 
+            display: grid; grid-template-columns: repeat(7, 80px); grid-template-rows: repeat(6, 80px); 
+            gap: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); position: relative; width: fit-content;
+        }
+        .cell { width: 80px; height: 80px; background-color: #f0f9ff; border-radius: 50%; box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.2); }
+        .disc { width: 72px; height: 72px; border-radius: 50%; position: absolute; transition: top 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+        .disc.red { background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c); box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.3); }
+        .disc.yellow { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.3); }
+        
+        .board-stand { display: flex; justify-content: space-between; width: 85%; margin: 0 auto; }
+        .stand-leg { width: 80px; height: 40px; background-color: #fbbf24; border-radius: 0 0 10px 10px; box-shadow: inset 0 -3px 5px rgba(0,0,0,0.2);}
+        
+        /* --- Modal & Kahoot 答題樣式 (完全比照寶可夢版) --- */
+        .game-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.92);
+            display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10000;
+        }
+        .modal-box {
+            background: #1a1a1a; padding: 40px; border-radius: 20px; max-width: 1200px; width: 95%;
+            text-align: center; border: 2px solid #3b82f6; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .kahoot-btn {
+            padding: 20px 30px; border-radius: 16px; border: none; color: white; font-weight: bold;
+            cursor: pointer; transition: 0.2s; box-shadow: 0 6px 0 rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: flex-start; min-height: 130px;
+            max-height: 180px; flex: 1 1 calc(50% - 30px); overflow: hidden; box-sizing: border-box;
+        }
+        .kahoot-btn:hover { filter: brightness(1.15); transform: translateY(-3px); box-shadow: 0 8px 0 rgba(0,0,0,0.3); }
+        .kahoot-btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.3); }
+        .kb-red { background-color: #e21b3c; }
+        .kb-blue { background-color: #1368ce; }
+        .kb-yellow { background-color: #d89e00; }
+        .kb-green { background-color: #26890c; }
+        
+        .btn { padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background-color: #2563eb; color: white; }
+        .btn-primary:hover { background-color: #1d4ed8; transform: translateY(-2px); }
+        
+        .feedback-message {
+            margin: 0; padding: 25px 20px; border-radius: 12px; text-align: center;
+            font-weight: bold; font-size: 1.8rem; opacity: 0; transition: opacity 0.3s; 
+            width: 100%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center;
+        }
+        .feedback-message.show { opacity: 1; }
+        .feedback-message.correct { background-color: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+        .feedback-message.wrong { background-color: #fee2e2; color: #b91c1c; border: 2px solid #ef4444; }
+        
+        .winner-disc { display: inline-block; width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin: 0 5px; }
+        .winner-disc.red { background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c); }
+        .winner-disc.yellow { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); }
+
+        .hidden { display: none !important; }
+
+        /* 新增：右上角關閉按鈕樣式 */
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 32px;
+            cursor: pointer;
+            color: #000;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .close-btn:hover { transform: scale(1.2); color: #fff; }
+    </style>
+</head>
+<body>
+
+    <!-- 系統提示 Modal -->
+    <div id="sys-alert" class="game-modal" style="z-index: 99999;">
+        <div class="modal-box" style="border-color: #ff4444; padding: 40px; max-width: 500px; background: white;">
+            <div id="sys-alert-msg" style="font-size: 24px; margin-bottom: 30px; line-height:1.5; color: #333; font-weight: bold;"></div>
+            <button class="btn btn-primary" style="font-size:18px; padding:10px 40px; width:auto; margin:0 auto;" onclick="document.getElementById('sys-alert').style.display='none'">確定</button>
+        </div>
+    </div>
+
+    <!-- 大廳題庫設定區 -->
+    <div id="lobby">
+        <div class="config-box">
+            <h1 style="color: #3b82f6; margin-bottom: 10px; font-size: 36px;">教育版四子棋</h1>
+            <p style="margin-bottom: 20px; color: #aaa;">結合知識問答與四子棋策略的終極對決！</p>
+            
+            <div style="display:flex; gap:20px; margin-top:10px; flex-wrap: wrap;">
+                <div class="upload-section" style="flex:1; min-width: 250px;">
+                    <h3 style="color: #77cc55; margin-bottom:8px;">🌐 模式 A：Google 試算表</h3>
+                    <p style="font-size:11px; color:#ccc; margin-bottom:10px;">格式：題號 | 題目 | 選項... | 答案(1-4)</p>
+                    <input type="text" id="cloud-url" class="cloud-input" placeholder="貼上 Google 試算表分享網址">
+                    <button class="btn" style="background:#77cc55; color:#000; padding:10px; font-weight:bold; margin-top:auto;" onclick="fetchCloudCSV()">載入連結</button>
+                    <div id="cloud-status" style="color: #77cc55; font-size: 13px; font-weight:bold; margin-top:8px;"></div>
+                </div>
+                
+                <div class="upload-section" style="flex:1; min-width: 250px;">
+                    <h3 style="color: #3399ff; margin-bottom:8px;">📝 模式 B：手動輸入題庫</h3>
+                    <p style="font-size:11px; color:#ccc; margin-bottom:10px;">由老師判定答對或答錯。多題請用 / 分隔：</p>
+                    <textarea id="qInput" placeholder="題目1 / 題目2 / ..."></textarea>
+                    <button class="btn" style="background:#3399ff; color:#fff; padding:10px; font-weight:bold; margin-top:auto;" onclick="loadManualQs()">確認題庫</button>
+                </div>
+            </div>
+
+            <div class="upload-section" style="text-align: center; border: 2px dashed #666; margin-top: 15px;">
+                <h3 style="color: #ff9d55; margin-bottom:5px;">📁 模式 C：上傳本地 CSV 檔案</h3>
+                <p style="font-size:11px; color:#ccc; margin-bottom:10px;">第一欄填題號，第二欄題目，最後一欄填解答數字(1-4)</p>
+                <input type="file" id="csv-file" accept=".csv" style="color:white; font-size:14px; margin: 0 auto; display: block;" onchange="loadLocalCSV(event)">
+            </div>
+
+            <button class="btn" style="background:#fbbf24; color:#1e3a8a; width:100%; max-width: 400px; margin:25px auto 0; padding:20px; font-size:28px; border-radius:30px; font-weight:900; letter-spacing:2px; box-shadow: 0 6px 0 #d97706;" onclick="startGameFromLobby()">
+                載入完畢，進入遊戲！
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲主畫面 (採用自動縮放 Wrapper) -->
+    <div id="game-container" class="game-container hidden">
+        <div id="game-scale-wrapper">
+            <!-- 左側文字與按鈕區塊 -->
+            <div class="left-panel">
+                <h1 class="game-title">教育版四子棋</h1>
+                
+                <!-- 開局：選擇先攻隊伍 -->
+                <div id="setup-ui" style="background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%;">
+                    <h2 style="margin-bottom:25px; color:#1e40af; font-size: 2.2rem; text-align:center;">選擇先攻隊伍</h2>
+                    <div style="display:flex; flex-direction:column; gap:20px;">
+                        <button class="btn" style="background:#ef4444; color:white; font-size:2rem; padding:20px; border-radius:20px; box-shadow: 0 6px 0 #b91c1c;" onclick="selectFirstPlayer(1)">🔴 紅隊先攻</button>
+                        <button class="btn" style="background:#fbbf24; color:black; font-size:2rem; padding:20px; border-radius:20px; box-shadow: 0 6px 0 #d97706;" onclick="selectFirstPlayer(2)">🟡 黃隊先攻</button>
+                    </div>
+                </div>
+                
+                <!-- 進行中：顯示當前玩家 -->
+                <div class="game-info hidden" id="gameInfo">
+                    <div class="current-player">
+                        <span style="color: #64748b;">現在輪到</span>
+                        <div class="player-disc red" id="currentPlayerDisc"></div>
+                        <span id="currentPlayerText" style="color: #b91c1c; font-size: 2.5rem;">紅色玩家</span>
+                    </div>
+                </div>
+                
+                <!-- 狀態回饋訊息 -->
+                <div class="feedback-message hidden" id="feedbackMessage"></div>
+
+                <!-- 返回按鈕 -->
+                <button class="btn hidden" id="returnBtn" style="background:#e5e7eb; color:#1f2937; margin-top: auto; padding: 20px; font-size: 1.8rem;" onclick="location.reload()">返回大廳</button>
+            </div>
+            
+            <!-- 右側棋盤區塊 -->
+            <div class="right-panel">
+                <div class="board-container hidden" id="mainBoardArea">
+                    <div class="column-selector" id="columnSelector">
+                        <!-- 生成欄位按鈕 -->
+                    </div>
+                    <div class="board" id="board">
+                        <!-- 生成棋盤格 -->
+                    </div>
+                    <div class="board-stand">
+                        <div class="stand-leg"></div>
+                        <div class="stand-leg"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 答題 Kahoot Modal (寶可夢樣式) -->
+    <div id="quiz-modal" class="game-modal">
+        <div class="modal-box" style="max-width: 1200px; width: 95%; padding: 40px;">
+            <h2 id="modal-team-name" style="margin-bottom: 25px; font-size:45px; font-weight:900; text-shadow:0 0 10px rgba(255,255,255,0.5); color:#ffcb05;"></h2>
+            <div id="quiz-text" style="margin: 30px 0;"></div>
+            <div id="quiz-options-container" style="display: flex; gap: 25px; justify-content: center; flex-wrap: wrap;"></div>
+        </div>
+    </div>
+
+    <!-- 遊戲結束 Modal (全面換新！寶可夢風格大獎盃版) -->
+    <div class="game-modal" id="gameOverModal" style="z-index: 10002;">
+        <div class="modal-box" style="max-width: 800px; border-width:4px; box-shadow:0 10px 40px rgba(0,0,0,.8); background:linear-gradient(45deg,#ffd700,#ff8c00); color:#000; border-color:#fff;">
+            <!-- 右上角關閉按鈕 -->
+            <div class="close-btn" onclick="document.getElementById('gameOverModal').style.display='none'">✖</div>
+            
+            <h1 id="modalMessage" style="font-size: 50px; text-shadow: 2px 2px #fff; margin-bottom: 15px;"></h1>
+            <p style="font-size: 24px; font-weight: bold; color:#333;">遊戲結束！</p>
+            
+            <!-- 錯題總結區域 -->
+            <div id="wrong-answers-summary" style="margin-top: 20px; background: rgba(0,0,0,0.7); color: #fff; padding: 25px; border-radius: 12px; text-align: left; max-height: 350px; overflow-y: auto; border: 2px solid #555;"></div>
+            
+            <!-- 重新開始 / 返回大廳按鈕 -->
+            <button class="btn btn-primary" id="playAgainBtn" style="background:#2a75bb; color:white; margin-top: 30px; font-size: 24px; padding: 15px 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">重新開始遊戲</button>
+        </div>
+    </div>
+    
+    <script>
+        // --- 畫面縮放控制邏輯 (與寶可夢同款機制) ---
+        function updateGameScale() {
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const wrapper = document.getElementById('game-scale-wrapper');
+            // 只在遊戲容器顯示時才進行運算
+            if (wrapper && !document.getElementById('game-container').classList.contains('hidden')) {
+                // 設定基礎畫布尺寸為 1250x750，0.95 預留四周留白安全距離
+                const scale = Math.min(winW / 1250, winH / 750) * 0.95;
+                wrapper.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            }
+        }
+        window.addEventListener('resize', updateGameScale);
+
+        // --- 全域變數與狀態設定 ---
+        const ROWS = 6;
+        const COLS = 7;
+        const EMPTY = 0;
+        const RED = 1;
+        const YELLOW = 2;
+        
+        let board = [];
+        let currentPlayer = RED;
+        let gameActive = false;
+        let canPlaceDisc = false;
+        
+        // 題庫系統變數
+        let quizMode = 'manual'; 
+        let questions = [];      
+        let csvQuestions = [];   
+        let currentQIdx = 0;     
+
+        // 錯題統計紀錄
+        let wrongAnswers = {
+            1: [], // 紅隊
+            2: []  // 黃隊
+        };
+        
+        // DOM 元件
+        const boardElement = document.getElementById('board');
+        const columnSelector = document.getElementById('columnSelector');
+        const currentPlayerDisc = document.getElementById('currentPlayerDisc');
+        const currentPlayerText = document.getElementById('currentPlayerText');
+        const feedbackMessage = document.getElementById('feedbackMessage');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const setupUI = document.getElementById('setup-ui');
+        const gameInfo = document.getElementById('gameInfo');
+        const mainBoardArea = document.getElementById('mainBoardArea');
+        const returnBtn = document.getElementById('returnBtn');
+        
+        // 音效引擎
+        let audioInitialized = false;
+        let synths = {};
+
+        // --- 輔助函式：彈窗 ---
+        window.showAlert = function(msg) { 
+            document.getElementById('sys-alert-msg').innerText = msg; 
+            document.getElementById('sys-alert').style.display = 'flex'; 
+        };
+
+        // --- 題庫載入邏輯 ---
+        window.parseCSVData = function(text) {
+            const lines = text.split(/\r\n|\n|\r/); 
+            csvQuestions = [];
+            let startIndex = lines[0] && (lines[0].includes('題') || lines[0].includes('答')) ? 1 : 0;
+            for(let i = startIndex; i < lines.length; i++) {
+                let line = lines[i].trim(); if(!line) continue;
+                let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+                if(cols.length >= 4) {
+                    let ans = parseInt(cols[cols.length - 1]); 
+                    let opts = cols.slice(2, cols.length - 1).filter(o => o !== "");
+                    if(!isNaN(ans) && ans >= 1 && ans <= opts.length) { 
+                        csvQuestions.push({ id: cols[0], q: cols[1], opts: opts, ans: ans }); 
+                    }
+                }
+            }
+            if(csvQuestions.length > 0) quizMode = 'csv';
+        };
+
+        window.fetchCloudCSV = function() {
+            let url = document.getElementById('cloud-url').value.trim(); if(!url) return;
+            document.getElementById('cloud-status').innerText = "⏳ 解析連結中...";
+            const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (!idMatch || !idMatch[1]) { 
+                document.getElementById('cloud-status').innerText = "❌ 無法解析網址，請確認包含 /d/ 試算表ID"; 
+                document.getElementById('cloud-status').style.color = '#ef4444';
+                return; 
+            }
+            
+            const sheetId = idMatch[1]; const callbackName = 'gvizCallback_' + Date.now();
+            window[callbackName] = function(data) {
+                try {
+                    csvQuestions = []; let rows = data.table.rows; let startIdx = 0;
+                    if(rows.length > 0 && rows[0].c[0] && rows[0].c[0].v && typeof rows[0].c[0].v === 'string') {
+                        const firstCell = rows[0].c[0].v.toLowerCase();
+                        if(firstCell.includes('題') || firstCell.includes('question') || firstCell.includes('答') || firstCell.includes('id')) { startIdx = 1; }
+                    }
+                    for(let i = startIdx; i < rows.length; i++) {
+                        let row = rows[i]; if(!row.c || !row.c[0] || row.c[0].v === null || row.c[0].v === undefined) continue;
+                        let cols = row.c.map(cell => (cell && cell.v !== null && cell.v !== undefined) ? cell.v.toString().trim() : "");
+                        while(cols.length > 0 && cols[cols.length - 1] === "") { cols.pop(); }
+                        if(cols.length >= 4) {
+                            let qId = cols[0], qText = cols[1], ans = parseInt(cols[cols.length - 1]);
+                            let opts = cols.slice(2, cols.length - 1).filter(o => o !== "");
+                            if(!isNaN(ans) && ans > 0 && ans <= opts.length) { 
+                                csvQuestions.push({ id: qId, q: qText, opts: opts, ans: ans }); 
+                            }
+                        }
+                    }
+                    if (csvQuestions.length > 0) {
+                        quizMode = 'csv'; 
+                        document.getElementById('cloud-status').style.color = '#77cc55';
+                        document.getElementById('cloud-status').innerText = `✅ 連線成功！讀取到 ${csvQuestions.length} 題。`;
+                    } else throw new Error("No valid data");
+                } catch (e) { 
+                    document.getElementById('cloud-status').style.color = '#ef4444';
+                    document.getElementById('cloud-status').innerText = "❌ 解析失敗。請確認格式（第1欄:題號, 第2欄:題目, 中間:選項, 最後1欄:解答數字）。"; 
+                }
+                delete window[callbackName]; document.getElementById(callbackName).remove();
+            };
+            const script = document.createElement('script'); script.id = callbackName;
+            script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=responseHandler:${callbackName}`;
+            script.onerror = function() { 
+                document.getElementById('cloud-status').style.color = '#ef4444';
+                document.getElementById('cloud-status').innerText = "❌ 連線失敗。請確認試算表「共用」設定。"; 
+                delete window[callbackName]; script.remove(); 
+            };
+            document.body.appendChild(script);
+        };
+
+        window.loadLocalCSV = function(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => { 
+                window.parseCSVData(evt.target.result); 
+                if (csvQuestions.length > 0) window.showAlert(`✅ 讀取到 ${csvQuestions.length} 題。`); 
+                else window.showAlert("❌ 無法解析題庫格式。"); 
+            };
+            reader.readAsText(file);
+        };
+
+        window.loadManualQs = function() {
+            const input = document.getElementById('qInput').value.trim();
+            if(!input) return window.showAlert("請先輸入手動題目！");
+            questions = input.split('/').map(s => s.trim()).filter(s => s);
+            quizMode = 'manual';
+            window.showAlert(`✅ 成功載入 ${questions.length} 題手動題目！`);
+        };
+
+        // --- 音效初始化 ---
+        async function initAudio() {
+            if (!audioInitialized) {
+                await Tone.start();
+                synths.drop = new Tone.MembraneSynth().toDestination();
+                synths.win = new Tone.PolySynth().toDestination();
+                synths.correct = new Tone.FMSynth().toDestination();
+                synths.wrong = new Tone.FMSynth({
+                    modulationIndex: 10,
+                    oscillator: { type: "sawtooth" },
+                    modulation: { type: "square" }
+                }).toDestination();
+                synths.spin = new Tone.Synth().toDestination();
+                audioInitialized = true;
+            }
+        }
+
+        function playSound(type) {
+            if (!audioInitialized) return;
+            try {
+                switch(type) {
+                    case 'drop': synths.drop.triggerAttackRelease("C2", "8n"); break;
+                    case 'win': synths.win.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n"); break;
+                    case 'correct': synths.correct.triggerAttackRelease("C6", "16n"); break;
+                    case 'wrong': synths.wrong.triggerAttackRelease("C3", "4n"); break;
+                    case 'spin': synths.spin.triggerAttackRelease("C5", "16n"); break;
+                }
+            } catch (e) { console.log(e); }
+        }
+
+        // --- 進入遊戲與選擇先手 ---
+        window.startGameFromLobby = function() {
+            if (quizMode === 'manual' && questions.length === 0) {
+                const input = document.getElementById('qInput').value.trim();
+                if(input) {
+                    questions = input.split('/').map(s => s.trim()).filter(s => s);
+                } else {
+                    return window.showAlert("⚠️ 請先載入 CSV 題庫或輸入手動題目！");
+                }
+            }
+            
+            document.getElementById('lobby').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            updateGameScale(); // 遊戲啟動時呼叫畫面縮放計算
+            initGameGrid();
+        };
+
+        function initGameGrid() {
+            // 初始化錯題紀錄
+            wrongAnswers = { 1: [], 2: [] };
+            
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(EMPTY));
+            boardElement.innerHTML = '';
+            columnSelector.innerHTML = '';
+            
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    boardElement.appendChild(cell);
+                }
+            }
+            
+            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+            for (let col = 0; col < COLS; col++) {
+                const button = document.createElement('button');
+                button.className = 'column-btn';
+                button.dataset.col = col;
+                button.disabled = true; 
+                
+                button.innerHTML = `
+                    <div class="column-circle" style="background-color: ${colors[col]};">
+                        <span class="column-number">${col + 1}</span>
+                    </div>
+                `;
+                
+                button.addEventListener('click', async () => {
+                    await initAudio();
+                    if (canPlaceDisc) {
+                        disableAllColumnButtons();
+                        canPlaceDisc = false;
+                        feedbackMessage.classList.remove('show');
+                        dropDisc(col);
+                    }
+                });
+                columnSelector.appendChild(button);
+            }
+        }
+
+        window.selectFirstPlayer = async function(colorCode) {
+            await initAudio();
+            currentPlayer = colorCode;
+            gameActive = true;
+            canPlaceDisc = false;
+            
+            setupUI.classList.add('hidden');
+            gameInfo.classList.remove('hidden');
+            mainBoardArea.classList.remove('hidden');
+            returnBtn.classList.remove('hidden');
+            feedbackMessage.classList.remove('hidden');
+            
+            updateGameInfo();
+            gameOverModal.style.display = 'none';
+            document.getElementById('quiz-modal').style.display = 'none';
+            
+            // 自動開始第一題
+            setTimeout(triggerQuiz, 500);
+        };
+
+        function updateGameInfo() {
+            currentPlayerDisc.className = `player-disc ${currentPlayer === RED ? 'red' : 'yellow'}`;
+            currentPlayerText.textContent = currentPlayer === RED ? '紅色玩家' : '黃色玩家';
+            currentPlayerText.style.color = currentPlayer === RED ? '#b91c1c' : '#d97706';
+            gameInfo.style.backgroundColor = currentPlayer === RED ? '#fee2e2' : '#fef3c7';
+        }
+
+        function showFeedback(message, type) {
+            feedbackMessage.textContent = message;
+            feedbackMessage.className = `feedback-message ${type} show`;
+        }
+
+        // --- 自動觸發的答題邏輯 ---
+        function triggerQuiz() {
+            if (!gameActive) return;
+
+            playSound('spin');
+            const teamNameEl = document.getElementById('modal-team-name');
+            const qContainer = document.getElementById('quiz-options-container');
+            qContainer.innerHTML = '';
+            
+            teamNameEl.textContent = `${currentPlayer === RED ? '🔴 紅色' : '🟡 黃色'}玩家 答題時間`;
+            teamNameEl.style.color = currentPlayer === RED ? '#ef4444' : '#fbbf24';
+
+            if (quizMode === 'csv' && csvQuestions.length > 0) {
+                // 隨機抽題 (完全比照寶可夢尺寸)
+                currentQIdx = Math.floor(Math.random() * csvQuestions.length);
+                const qObj = csvQuestions[currentQIdx];
+                let qFontSize = qObj.q.length > 30 ? '36px' : '50px';
+                
+                document.getElementById('quiz-text').innerHTML = `<div style="font-size:${qFontSize}; font-weight:bold; color:#fff; text-shadow: 2px 2px 4px #000; margin-bottom:30px; padding: 0 20px;">${qObj.q}</div>`;
+                
+                const styles = ['kb-red', 'kb-blue', 'kb-yellow', 'kb-green']; 
+                const icons = ['▲', '◆', '●', '■'];
+                qObj.opts.forEach((opt, i) => {
+                    const isCorrect = (i + 1 === qObj.ans);
+                    let fontSize = opt.length > 40 ? '20px' : (opt.length > 15 ? '26px' : '32px');
+                    qContainer.innerHTML += `
+                        <button class="kahoot-btn ${styles[i % 4]}" onclick="window.handleQuizAnswer(${isCorrect})">
+                            <span style="margin-right:15px; font-size:36px; flex-shrink:0;">${icons[i % 4]}</span>
+                            <span style="flex:1; text-align:left; font-size:${fontSize}; line-height:1.3; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis;">${opt}</span>
+                        </button>`;
+                });
+            } else {
+                // 手動模式
+                currentQIdx = Math.floor(Math.random() * questions.length);
+                let qText = questions[currentQIdx] || "無題目";
+                let qFontSize = qText.length > 30 ? '40px' : '60px'; 
+                
+                document.getElementById('quiz-text').innerHTML = `<div style="font-size:${qFontSize}; font-weight:bold; color:#fff; text-shadow: 2px 2px 4px #000; margin-bottom:30px; padding: 0 20px;">${qText}</div>`;
+                qContainer.innerHTML = `
+                    <button class="btn" style="background:#4caf50; color:white; padding:25px 60px; width:auto; font-size:40px; margin:0 20px; border-radius:16px; box-shadow: 0 8px 0 #388e3c;" onclick="window.handleQuizAnswer(true)">◯ 答對</button>
+                    <button class="btn" style="background:#f44336; color:white; padding:25px 60px; width:auto; font-size:40px; margin:0 20px; border-radius:16px; box-shadow: 0 8px 0 #d32f2f;" onclick="window.handleQuizAnswer(false)">✕ 答錯</button>
+                `;
+            }
+
+            document.getElementById('quiz-modal').style.display = 'flex';
+        }
+
+        window.handleQuizAnswer = function(isCorrect) {
+            document.getElementById('quiz-modal').style.display = 'none';
+            
+            if (isCorrect) {
+                playSound('correct');
+                showFeedback('✅ 回答正確！請點擊右方數字投遞圓盤', 'correct');
+                canPlaceDisc = true;
+                enableAvailableColumnButtons();
+            } else {
+                playSound('wrong');
+                showFeedback('❌ 回答錯誤！換下一位玩家', 'wrong');
+                
+                // --- 紀錄錯題 ---
+                let qText = "";
+                if (quizMode === 'csv' && csvQuestions.length > 0) {
+                    // 若有題號，優先記錄題號，否則直接記錄題目內容
+                    qText = csvQuestions[currentQIdx].id || csvQuestions[currentQIdx].q;
+                } else {
+                    qText = questions[currentQIdx] || "未知題目";
+                }
+                wrongAnswers[currentPlayer].push(qText);
+                // ------------------
+                
+                // 自動切換玩家並觸發下一次答題
+                currentPlayer = currentPlayer === RED ? YELLOW : RED;
+                updateGameInfo();
+                
+                setTimeout(() => {
+                    feedbackMessage.classList.remove('show');
+                    triggerQuiz();
+                }, 2500); // 給玩家 2.5 秒看錯誤訊息
+            }
+        };
+
+        // --- 棋盤與勝負邏輯 ---
+        function dropDisc(col) {
+            if (!gameActive) return;
+            
+            let row = -1;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r][col] === EMPTY) {
+                    row = r;
+                    break;
+                }
+            }
+            if (row === -1) return;
+            
+            board[row][col] = currentPlayer;
+            
+            const disc = document.createElement('div');
+            disc.className = `disc ${currentPlayer === RED ? 'red' : 'yellow'}`;
+            boardElement.appendChild(disc);
+
+            const targetCell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            const topCell = document.querySelector(`.cell[data-row="0"][data-col="${col}"]`);
+            
+            const discWidth = disc.offsetWidth;
+            const discHeight = disc.offsetHeight;
+            const cellWidth = topCell.offsetWidth;
+            const cellHeight = topCell.offsetHeight;
+            
+            const leftPosition = topCell.offsetLeft + (cellWidth - discWidth) / 2;
+            const finalTop = targetCell.offsetTop + (cellHeight - discHeight) / 2;
+            
+            disc.style.left = `${leftPosition}px`;
+            disc.style.top = `-${discHeight + 20}px`; 
+            
+            disc.offsetHeight; // Trigger reflow
+            disc.style.top = `${finalTop}px`;
+            playSound('drop');
+            
+            if (row === 0) {
+                const button = columnSelector.querySelectorAll('.column-btn')[col];
+                button.disabled = true;
+            }
+            
+            // 動畫播完後判斷勝負與換位
+            setTimeout(() => {
+                if (checkWin(row, col)) {
+                    gameActive = false;
+                    playSound('win');
+                    showGameOverMessage(`🏆 TEAM ${currentPlayer === RED ? '1' : '2'} 獲勝！ 🏆`);
+                } else if (checkDraw()) {
+                    gameActive = false;
+                    showGameOverMessage('🤝 雙方棋盤已滿，平手！ 🤝');
+                } else {
+                    // 自動切換玩家並觸發答題
+                    currentPlayer = currentPlayer === RED ? YELLOW : RED;
+                    updateGameInfo();
+                    
+                    setTimeout(() => {
+                        triggerQuiz();
+                    }, 1000); // 留 1 秒讓玩家看清楚棋子落點
+                }
+            }, 600);
+        }
+
+        function enableAvailableColumnButtons() {
+            const buttons = columnSelector.querySelectorAll('.column-btn');
+            for (let col = 0; col < COLS; col++) {
+                if (board[0][col] === EMPTY) {
+                    buttons[col].disabled = false;
+                }
+            }
+        }
+
+        function disableAllColumnButtons() {
+            const buttons = columnSelector.querySelectorAll('.column-btn');
+            for (let col = 0; col < COLS; col++) {
+                buttons[col].disabled = true;
+            }
+        }
+
+        function checkWin(row, col) {
+            const directions = [ [0, 1], [1, 0], [1, 1], [1, -1] ];
+            const player = board[row][col];
+            for (const [dx, dy] of directions) {
+                let count = 1;
+                for (let i = 1; i <= 3; i++) {
+                    const newRow = row + i * dx; const newCol = col + i * dy;
+                    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) break;
+                    if (board[newRow][newCol] !== player) break;
+                    count++;
+                }
+                for (let i = 1; i <= 3; i++) {
+                    const newRow = row - i * dx; const newCol = col - i * dy;
+                    if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) break;
+                    if (board[newRow][newCol] !== player) break;
+                    count++;
+                }
+                if (count >= 4) return true;
+            }
+            return false;
+        }
+
+        function checkDraw() {
+            for (let col = 0; col < COLS; col++) { if (board[0][col] === EMPTY) return false; }
+            return true;
+        }
+
+        // 寶可夢風格結算視窗 & 錯題呈現
+        function showGameOverMessage(message) {
+            const modalMsgEl = document.getElementById('modalMessage');
+            modalMsgEl.innerHTML = message;
+            
+            // 繪製錯題總結
+            const summaryDiv = document.getElementById('wrong-answers-summary');
+            let summaryHtml = "";
+            
+            [RED, YELLOW].forEach(t => {
+                const teamName = t === RED ? 'Team 1 (紅隊)' : 'Team 2 (黃隊)';
+                const teamColor = t === RED ? '#00c3ff' : '#ff6b6b';
+                const wrongs = wrongAnswers[t];
+                
+                summaryHtml += `<h3 style="color:${teamColor}; margin-top:${t===YELLOW?'15px':'0'}; margin-bottom:5px; font-size:18px;">${teamName} 錯題：</h3>`;
+                if(wrongs.length === 0) { 
+                    summaryHtml += `<div style="font-size:16px; color:#aaa; margin-left:10px;">(無錯題紀錄！)</div>`; 
+                } else {
+                    const wrongCounts = {}; 
+                    wrongs.forEach(w => { wrongCounts[w] = (wrongCounts[w] || 0) + 1; });
+                    const formattedWrongs = Object.entries(wrongCounts).map(([w, count]) => count > 1 ? `<span style="color:#4caf50; font-weight:bold;">${w} (${count}次)</span>` : `<span style="font-weight:bold;">${w}</span>`);
+                    summaryHtml += `<div style="font-size:18px; margin-left:10px; color:#eee; line-height: 1.6; word-wrap: break-word; letter-spacing:1px;">${formattedWrongs.join('<span style="color:#888; margin:0 6px;">,</span>')}</div>`;
+                }
+            });
+            
+            summaryDiv.innerHTML = summaryHtml;
+            gameOverModal.style.display = 'flex';
+        }
+
+        // 重新開始並返回大廳（與寶可夢 TCG 相同體驗，直接重整頁面）
+        document.getElementById('playAgainBtn').addEventListener('click', async () => {
+            location.reload(); 
+        });
+
+    </script>
+</body>
+</html>
