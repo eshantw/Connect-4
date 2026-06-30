@@ -37,7 +37,6 @@
             position: relative; z-index: 10; background: #111; padding: 25px 30px; border-radius: 24px;
             border: 2px solid #3b82f6; width: 100%; max-width: 850px; text-align: center; box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
         }
-        /* 移除原本過高的 min-height */
         .upload-section {
             background: rgba(255,255,255,0.05); padding: 12px 15px; border-radius: 12px; margin: 8px 0;
             border: 2px dashed #666; text-align: left; display: flex; flex-direction: column; 
@@ -239,15 +238,28 @@
                 <input type="file" id="csv-file" accept=".csv" style="color:white; font-size:13px; margin: 0 auto; display: block;" onchange="loadLocalCSV(event)">
             </div>
             
-            <!-- 新增隨機設定區塊 -->
-            <div class="upload-section" style="margin-top: 15px; border-color: #555;">
-                <h3 style="color: #bbb; margin-bottom:8px; font-size:15px;">🎲 隨機設定</h3>
-                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer;">
-                    <input type="checkbox" id="shuffle-q-btn" checked> 隨機打亂題目順序
-                </label>
-                <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer; margin-top:6px;">
-                    <input type="checkbox" id="shuffle-opt-btn" checked> 隨機打亂選項順序 (僅適用 CSV / 試算表模式)
-                </label>
+            <!-- 雙欄設定區塊 -->
+            <div style="display:flex; gap:15px; margin-top:15px; flex-wrap: wrap;">
+                <!-- 隨機設定 -->
+                <div class="upload-section" style="flex:1; border-color: #555; margin:0;">
+                    <h3 style="color: #bbb; margin-bottom:8px; font-size:15px;">🎲 隨機設定</h3>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer;">
+                        <input type="checkbox" id="shuffle-q-btn" checked> 隨機打亂題目順序
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer; margin-top:6px;">
+                        <input type="checkbox" id="shuffle-opt-btn" checked> 隨機選項 (限試算表/CSV)
+                    </label>
+                </div>
+                <!-- 難度設定 -->
+                <div class="upload-section" style="flex:1; border-color: #555; margin:0;">
+                    <h3 style="color: #bbb; margin-bottom:8px; font-size:15px;">⚙️ 獲勝條件</h3>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer;">
+                        <input type="radio" name="win-condition" value="4" checked> 🔴 4 顆連線獲勝 (標準)
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#ddd; cursor:pointer; margin-top:6px;">
+                        <input type="radio" name="win-condition" value="3"> 🟢 3 顆連線獲勝 (簡單)
+                    </label>
+                </div>
             </div>
 
             <button class="btn" style="background:#fbbf24; color:#1e3a8a; width:100%; max-width: 350px; margin:20px auto 0; padding:15px; font-size:24px; border-radius:30px; font-weight:900; letter-spacing:2px; box-shadow: 0 6px 0 #d97706;" onclick="startGameFromLobby()">
@@ -261,7 +273,7 @@
         <div id="game-scale-wrapper">
             <!-- 左側文字與按鈕區塊 -->
             <div class="left-panel">
-                <h1 class="game-title">教育版四子棋</h1>
+                <h1 class="game-title" id="inGameTitle">教育版四子棋</h1>
                 
                 <!-- 開局：選擇先攻隊伍 -->
                 <div id="setup-ui" style="background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%;">
@@ -377,6 +389,7 @@
         let currentPlayer = RED;
         let gameActive = false;
         let canPlaceDisc = false;
+        let winCondition = 4; // 獲勝條件 (預設 4 顆連線)
         
         // 題庫系統變數
         let quizMode = 'manual'; 
@@ -402,6 +415,7 @@
         const gameInfo = document.getElementById('gameInfo');
         const mainBoardArea = document.getElementById('mainBoardArea');
         const returnBtn = document.getElementById('returnBtn');
+        const inGameTitle = document.getElementById('inGameTitle');
         
         // 音效引擎
         let audioInitialized = false;
@@ -543,10 +557,16 @@
                 }
             }
             
-            // 讀取隨機設定
+            // 讀取設定
             const isShuffleQuestions = document.getElementById('shuffle-q-btn').checked;
             const isShuffleOptions = document.getElementById('shuffle-opt-btn').checked;
+            const winCondRadio = document.querySelector('input[name="win-condition"]:checked');
+            winCondition = winCondRadio ? parseInt(winCondRadio.value) : 4;
 
+            // 依據難度更新標題
+            inGameTitle.textContent = `教育版四子棋 (${winCondition}連線)`;
+
+            // 執行洗牌
             if (quizMode === 'csv' && csvQuestions.length > 0) {
                 if (isShuffleOptions) {
                     csvQuestions.forEach(q => shuffleQuestionOptions(q));
@@ -707,7 +727,6 @@
                 // --- 紀錄錯題 ---
                 let qText = "";
                 if (quizMode === 'csv' && csvQuestions.length > 0) {
-                    // 若有題號，優先記錄題號，否則直接記錄題目內容
                     const realQIdx = currentQIdx % csvQuestions.length;
                     qText = csvQuestions[realQIdx].id || csvQuestions[realQIdx].q;
                 } else {
@@ -810,24 +829,27 @@
             }
         }
 
+        // 動態支援 3連線 或 4連線 的判定
         function checkWin(row, col) {
             const directions = [ [0, 1], [1, 0], [1, 1], [1, -1] ];
             const player = board[row][col];
             for (const [dx, dy] of directions) {
                 let count = 1;
-                for (let i = 1; i <= 3; i++) {
+                // 正向檢查
+                for (let i = 1; i < winCondition; i++) {
                     const newRow = row + i * dx; const newCol = col + i * dy;
                     if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) break;
                     if (board[newRow][newCol] !== player) break;
                     count++;
                 }
-                for (let i = 1; i <= 3; i++) {
+                // 反向檢查
+                for (let i = 1; i < winCondition; i++) {
                     const newRow = row - i * dx; const newCol = col - i * dy;
                     if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) break;
                     if (board[newRow][newCol] !== player) break;
                     count++;
                 }
-                if (count >= 4) return true;
+                if (count >= winCondition) return true;
             }
             return false;
         }
@@ -837,7 +859,7 @@
             return true;
         }
 
-        // 寶可夢風格結算視窗 & 錯題呈現
+        // 結算視窗 & 錯題呈現
         function showGameOverMessage(message) {
             const modalMsgEl = document.getElementById('modalMessage');
             modalMsgEl.innerHTML = message;
@@ -866,7 +888,7 @@
             gameOverModal.style.display = 'flex';
         }
 
-        // 重新開始並返回大廳（與寶可夢 TCG 相同體驗，直接重整頁面）
+        // 重新開始並返回大廳
         document.getElementById('playAgainBtn').addEventListener('click', async () => {
             location.reload(); 
         });
@@ -874,3 +896,4 @@
     </script>
 </body>
 </html>
+```eof
